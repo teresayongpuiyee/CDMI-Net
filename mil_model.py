@@ -17,7 +17,7 @@ from model_parts import GatedAttentionLayer
 class Attention(nn.Module):
     def __init__(self):
         super(Attention, self).__init__()
-        self.im_dim = 112
+        self.im_dim = 256
         self.im_channel = 3
         self.feature_channels = 64
         self.attention_channels = 128

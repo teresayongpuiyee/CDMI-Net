@@ -4,7 +4,7 @@
 @email: 007zhangmin@whu.edu.cn
 """
 
-import gdal
+from osgeo import gdal
 import numpy as np
 import cv2
 from PIL import Image

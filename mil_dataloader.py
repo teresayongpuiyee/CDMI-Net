@@ -47,8 +47,11 @@ class CDBags(data_utils.Dataset):
             # Positive bag
             label = torch.LongTensor([1])
 
+        gt_file_name = "label" + file_name[1:-1] + ".png"
+
         t1_path = bag_path + 'T1.tif'
         t2_path = bag_path + 'T2.tif'
+        gt_path = os.path.join(self.data_dir, gt_file_name)
         t1 = util.read_image(t1_path)
         t2 = util.read_image(t2_path)
         t2 = util.hist_match(t2, t1)
@@ -56,7 +59,7 @@ class CDBags(data_utils.Dataset):
         data1 = t1.transpose((2, 0, 1))
         data2 = t2.transpose((2, 0, 1))
 
-        return data1, data2, label, bag_path
+        return data1, data2, label, bag_path, gt_path
 
 
 if __name__ == "__main__":

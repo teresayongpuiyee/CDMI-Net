@@ -14,6 +14,8 @@ from mil_dataloader import CDBags
 import time
 import accuracy as acc
 import argparse
+import os
+from pathlib import Path
 
 
 def test(model, test_loader, args):
@@ -24,7 +26,7 @@ def test(model, test_loader, args):
     all_size = len(test_loader)
     time_start_all = time.time()
     time_start = time.time()
-    for batch_idx, (data1, data2, label, file_name) in enumerate(test_loader):
+    for batch_idx, (data1, data2, label, file_name, gt_path) in enumerate(test_loader):
         step = step + 1
         gts.append(label[0].numpy()[0])
         data_v_1 = Variable(data1)
@@ -45,10 +47,16 @@ def test(model, test_loader, args):
     time_end_all = time.time()
     print('All time {:.2f}'.format(time_end_all - time_start_all))
     hist = acc.hist(gts, pred)
-    acc.evaluation_print(hist)
+    val_f1 = acc.evaluation_print(hist, scene=True)
+
+    return val_f1
 
 
 def train(model, args):
+    args.weight_dir = "./outputs/" + args.weight_dir + "/model"
+    if os.path.exists(args.weight_dir) == False:
+        os.makedirs(args.weight_dir)
+
     args_gpu = not args.no_gpu and torch.cuda.is_available()
 
     if args_gpu:
@@ -88,6 +96,10 @@ def train(model, args):
                                 lr=args.lr, momentum=0.99,
                                 weight_decay=args.decay)
 
+    #lr_scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
+    #                                                milestones=args.schedule,
+    #                                                gamma=0.1)
+
     train_loss = 0.
     train_error = 0.
     all_size = len(train_loader)
@@ -95,12 +107,13 @@ def train(model, args):
     step = 0
     train_loss_t = 0
     train_error_t = 0
+    best_val_f1 = 0
 
     time_start = time.time()
     for epoch in range(1, args.epochs + 1):
         model.train()
         for batch_idx, (data1, data2, label,
-                        file_name) in enumerate(train_loader):
+                        file_name, gt_path) in enumerate(train_loader):
             bag_label = label[0]
 
             data_v_1 = Variable(data1)
@@ -148,13 +161,25 @@ def train(model, args):
         train_loss = train_loss / len(train_loader)
         train_error = train_error / len(train_loader)
 
-        path = '{}/cdminet_epoch_{}.pt'.format(args.weight_dir, epoch)
-        torch.save(model.state_dict(), path)
+        val_f1 = test(model, test_loader, args)
+
+        if val_f1 > best_val_f1:
+            best_val_f1 = val_f1
+
+            pth_files = Path(args.weight_dir).glob('*.pt')
+            for pth_file in pth_files:
+                pth_file.unlink()
+            
+            path = '{}/cdminet_epoch_{}.pt'.format(args.weight_dir, epoch)
+            torch.save(model.state_dict(), path)
         msg = 'Epoch: {}, Loss: {:.4f}, Train error: {:.4f}'.format(
             epoch, train_loss, train_error)
-
-        test(model, test_loader, args)
+        
+        if epoch == args.epochs and val_f1 <= best_val_f1:
+            path = '{}/cdminet_epoch_{}.pt'.format(args.weight_dir, epoch)
+            torch.save(model.state_dict(), path)
         print(msg)
+        #lr_scheduler.step()
 
 
 if __name__ == "__main__":
@@ -172,6 +197,7 @@ if __name__ == "__main__":
         help='Number of iterations for display.')
     args.add_argument('--epochs', type=int, default=30, help='Max epochs.')
     args.add_argument('--lr', type=float, default=1e-4, help='Learning rate.')
+    #args.add_argument('--schedule', type=int, nargs='+', default=[50])
     args.add_argument(
         '--decay',
         type=float,

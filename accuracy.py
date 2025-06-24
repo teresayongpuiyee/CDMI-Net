@@ -29,7 +29,7 @@ def hist(gt_data, pred_data):
     return hist
 
 
-def evaluation_print(hist):
+def evaluation_print(hist, scene=False):
     """
                      GT:Changed, Unchanged
       Predicted-Changed:  TP   ,     FP    , b1
@@ -39,6 +39,7 @@ def evaluation_print(hist):
     tp = hist[0, 0]
     fp = hist[0, 1]  # gt->0,predict->1, false alarms
     fn = hist[1, 0]  # gt->1,predict->0, missed detections
+    tn = hist[1, 1]
     if tp == 0:
         recall = 0
         precision = 0
@@ -53,3 +54,7 @@ def evaluation_print(hist):
     print('>>>', datetime.now(), ("   precision:", precision))
     print('>>>', datetime.now(), ("  f1-measure:", f1measure))
     print('>>>', datetime.now(), "----------------------")
+    if scene == True:
+        accuracy = (tp + tn) * 1.0 / (tp + tn + fp + fn)
+        print('>>>', datetime.now(), ("    accuracy:", accuracy))
+        return f1measure
